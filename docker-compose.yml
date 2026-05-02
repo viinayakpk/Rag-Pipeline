@@ -1,0 +1,51 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ragkb}
+      POSTGRES_USER: ${POSTGRES_USER:-raguser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragpass}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raguser} -d ${POSTGRES_DB:-ragkb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-raguser}:${POSTGRES_PASSWORD:-ragpass}@db:5432/${POSTGRES_DB:-ragkb}
+    ports:
+      - "${APP_HOST_PORT:-8001}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - model_cache:/root/.cache
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ollama:
+    image: ollama/ollama
+    profiles: [ollama]
+    ports:
+      - "${OLLAMA_HOST_PORT:-11435}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: >
+      /bin/sh -c "ollama serve &
+      until ollama list > /dev/null 2>&1; do sleep 1; done &&
+      ollama pull ${OLLAMA_MODEL:-llama3.2:3b} &&
+      wait"
+
+volumes:
+  pg_data:
+  model_cache:
+  ollama_data:
