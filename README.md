@@ -333,7 +333,7 @@ See `.env.example` for full reference. Key variables:
 
 ## About This Submission
 
-**The assignment:** Build a RAG backend for a Swedish company's internal knowledge base — upload API, chunking, embeddings, persistent storage, `/search`, `/chat` with citations. Hybrid search, reranking, and auth were listed as optional stretch goals.
+**The assignment:** Build a RAG backend — upload API, chunking, embeddings, persistent storage, `/search`, `/chat` with citations. Hybrid search, reranking, and auth were listed as optional stretch goals.
 
 I implemented all the stretch goals. Here is the reasoning.
 
