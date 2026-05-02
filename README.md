@@ -97,8 +97,8 @@ Measured on CPU (no GPU), warm requests, `HYBRID_CANDIDATE_COUNT=10`:
 
 ## Known Limitations
 
-- **Scanned PDFs:** no OCR — a text layer is required. Image-only PDFs are rejected with a 422 error.
-- **Word/PPTX files:** not supported. Convert to PDF or plain text before ingestion. Silent failure is not possible — unsupported MIME types are rejected at the upload boundary.
+- **Scanned PDFs:** no OCR, a text layer is required. Image-only PDFs are rejected with a 422 error.
+- **Word/PPTX files:** not supported. Convert to PDF or plain text before ingestion. Silent failure is not possible, unsupported MIME types are rejected at the upload boundary.
 - **LLM answer quality:** only verifiable with a real LLM provider (`ollama` or `openrouter`). `LLM_PROVIDER=mock` is the safe default for evaluation.
 - **`confidence` is a retrieval-strength heuristic, not a factual verifier.** It reflects how many relevant chunks were found and how strongly they matched the query — not whether the LLM's answer is factually grounded. An unanswerable question can return `confidence: low` even though the LLM correctly states the context is insufficient. Downstream consumers should treat `confidence` as a signal about retrieval quality, not answer correctness.
 - **No HNSW index:** exact cosine scan is correct and fast at small scale; set an HNSW index threshold at approximately 100 000 chunks for production.
