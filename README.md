@@ -1,4 +1,4 @@
-# Ahody RAG — Knowledge Base Backend
+# Knowledge Based RAG Backend [Ahody]
 
 A metadata-aware, multilingual RAG backend for internal knowledge base search with source-grounded answers. Fully implemented and evaluated.
 (ENG/SW/FR/NOR/GER)
