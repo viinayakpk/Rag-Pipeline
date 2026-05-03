@@ -330,22 +330,15 @@ See `.env.example` for full reference. Key variables:
 | `POSTGRES_HOST_PORT` | `5433` | Host port for Postgres |
 
 ---
+### The decision that shaped the architecture
 
-## About This Submission
-
-**The assignment:** Build a RAG backend — upload API, chunking, embeddings, persistent storage, `/search`, `/chat` with citations. Hybrid search, reranking, and auth were listed as optional stretch goals.
-
-I implemented all the stretch goals. Here is the reasoning.
-
-### The decision that shaped everything else
-
-The spec states a core principle I agreed with immediately: *the LLM is not the source of truth — retrieved chunks are.* A grounded answer with accurate citations is verifiably correct. A fluent answer without them cannot be trusted. That principle meant the retrieval pipeline had to work well before the LLM integration mattered at all.
+The spec states a core principle I agreed with immediately: *the LLM is not the source of truth, retrieved chunks are.* A grounded answer with accurate citations is verifiably correct. A fluent answer without them cannot be trusted. That principle meant the retrieval pipeline had to work well before the LLM integration mattered at all.
 
 Hybrid search (vector + full-text with RRF fusion) and cross-encoder reranking were the most direct way to raise retrieval precision. They were stretch goals on paper, but they were the right answer to the actual problem. I built them first.
 
 ### Language scope
 
-The brief did not specify which languages to support. After confirming that Ahody is Swedish and expanding into EU markets, I chose EN, SV, DE, NO, FR and dropped Finnish in favour of French. This choice is encoded in exactly two places: the spaCy model list and the FTS config map. If the requirement differs, both change in a few lines.
+The brief did not specify which languages to support. After confirming that Ahody is Swedish and expanding into EU markets, I chose EN, SV, DE, NO, FR. This choice is encoded in exactly two places: the spaCy model list and the FTS config map. If the requirement differs, both change in a few lines.
 
 ### Why the evaluation infrastructure exists
 
@@ -356,17 +349,8 @@ The evaluation suite produced concrete numbers:
 - 31/31 robustness tests across bad metadata, ugly text, and PDF edge cases
 - Rerank latency reduced from ~22s to ~7s through candidate-count ablation, with zero retrieval quality loss
 
-These numbers are not impressive because the corpus is small. They are useful because any interviewer can reproduce them on a fresh machine in under 10 minutes. That was the goal.
+[ These numbers might not be impressive because the corpus is small. They are useful because any interviewer can reproduce them on a fresh machine in under 10 minutes. That was the goal.]
 
 ### AI collaboration
 
-Claude Code (Anthropic) was my primary implementation tool throughout this project. I made every architectural and technology decision — what to build, what to skip, which models to use, how to measure quality, what to be honest about in the README. Claude wrote and iterated on the code, caught bugs, ran test iterations, and allowed me to cover significantly more ground in four days than I could have alone.
-
-I am transparent about this because AI-augmented development is the current reality of engineering, and because the spec explicitly evaluates AI collaboration. The judgment calls were mine; the code velocity came from the tooling.
-
-### What I would prioritise next
-
-- **HNSW index** at ~100k chunks for production-scale vector search (exact cosine scan is correct and fast at this scale)
-- **Streaming `/chat`** responses — long LLM answers currently block the connection until completion
-- **`DELETE /documents/{id}` and `GET /documents`** for full document lifecycle management
-- **Answer-level confidence** — the current `confidence` field is a retrieval-strength heuristic; grounding it in the LLM's own uncertainty signals would require a separate verification step
+I used a mix of both Claude and Codex throughout this project. How to build, what to skip, which models to use, how to measure quality. Claude wrote and iterated on the code, Codex helped me with architectural decisions and caught bugs, ran test iterations, and allowed me to cover significantly more ground in three days than I could have alone.
