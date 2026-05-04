@@ -1,7 +1,7 @@
-# Knowledge Based RAG Backend [Ahody]
+#  Knowledge Based RAG Backend [Ahody Interview process]
 
 A metadata-aware, multilingual RAG backend for internal knowledge base search with source-grounded answers. Fully implemented and evaluated.
-(ENG/SW/FR/NOR/GER)
+
 ---
 
 ## Stack
@@ -39,6 +39,41 @@ curl http://localhost:8001/health
 ```
 
 **Host ports:** app → `localhost:8001`, Postgres → `localhost:5433`, optional Ollama → `localhost:11435`
+
+---
+
+## How to Review This Assignment
+
+If you want the fastest meaningful review path, use this sequence:
+
+```bash
+# 1. Start the app
+cp .env.example .env
+docker compose up -d
+
+# 2. Verify health
+curl http://localhost:8001/health
+
+# 3. Try search
+curl "http://localhost:8001/search?q=energy+sanctions&language=en&limit=1"
+
+# 4. Try grounded chat
+curl -X POST http://localhost:8001/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What did EU officials say about energy security?","filters":{"language":"en"}}'
+
+# 5. Reproduce the benchmarks
+DOCKER_CMD="sudo docker" bash examples/eval.sh
+DOCKER_CMD="sudo docker" bash examples/robustness.sh
+```
+
+**Expected clean baseline:**
+
+- `/health` returns `{"status":"ok",...}`
+- `/search` returns chunk-level results with `text`, score, and metadata fields
+- `/chat` returns an answer, cited `sources`, and `retrieval_notes`
+- `eval.sh` returns `48 passed, 0 failed, 0 skipped` with `Hit@1 = 12/12`, `MRR = 1.000`
+- `robustness.sh` returns `31 passed, 0 failed, 0 skipped`
 
 ---
 
@@ -97,8 +132,8 @@ Measured on CPU (no GPU), warm requests, `HYBRID_CANDIDATE_COUNT=10`:
 
 ## Known Limitations
 
-- **Scanned PDFs:** no OCR, a text layer is required. Image-only PDFs are rejected with a 422 error.
-- **Word/PPTX files:** not supported. Convert to PDF or plain text before ingestion. Silent failure is not possible, unsupported MIME types are rejected at the upload boundary.
+- **Scanned PDFs:** no OCR — a text layer is required. Image-only PDFs are rejected with a 422 error.
+- **Word/PPTX files:** not supported. Convert to PDF or plain text before ingestion. Silent failure is not possible — unsupported MIME types are rejected at the upload boundary.
 - **LLM answer quality:** only verifiable with a real LLM provider (`ollama` or `openrouter`). `LLM_PROVIDER=mock` is the safe default for evaluation.
 - **`confidence` is a retrieval-strength heuristic, not a factual verifier.** It reflects how many relevant chunks were found and how strongly they matched the query — not whether the LLM's answer is factually grounded. An unanswerable question can return `confidence: low` even though the LLM correctly states the context is insufficient. Downstream consumers should treat `confidence` as a signal about retrieval quality, not answer correctness.
 - **No HNSW index:** exact cosine scan is correct and fast at small scale; set an HNSW index threshold at approximately 100 000 chunks for production.
@@ -183,6 +218,28 @@ Response shape is identical to `POST /text` above.
 curl "http://localhost:8001/search?q=energy+sanctions&language=en&from_date=2023-01-01&limit=5"
 ```
 
+**Response:**
+```json
+{
+  "query": "energy sanctions",
+  "results": [
+    {
+      "chunk_id": "71f9fbaf-0d8f-4f33-9a57-e3a1b857f31c",
+      "document_id": "9f19cf1d-67f0-4909-a93e-4a4d2e8e1f51",
+      "text": "EU energy ministers met in Brussels to discuss energy security, gas storage targets, and sanctions enforcement across member states.",
+      "score": 0.9842,
+      "title": "EU Ministers Debate Energy Security",
+      "source": "EuroEnergy Daily",
+      "language": "en",
+      "published_at": "2023-09-14 00:00:00+00:00",
+      "chunk_index": 0,
+      "token_count": 128
+    }
+  ],
+  "total": 1
+}
+```
+
 Filters: `language`, `source`, `document_type`, `region`, `topic`, `from_date`, `to_date`, `limit`
 
 ### `POST /chat` — Grounded Q&A with citations
@@ -205,6 +262,35 @@ curl -X POST http://localhost:8001/chat \
 curl -X POST http://localhost:8001/chat \
   -H "Content-Type: application/json" \
   -d '{"question":"What were the latest energy forecasts?","filters":{"from_date":"2024-01-01"}}'
+```
+
+**Response:**
+```json
+{
+  "question": "What did EU officials say about energy security?",
+  "answer": "EU officials said energy security required coordinated gas storage targets and closer sanctions enforcement across member states [1].",
+  "confidence": "high",
+  "sources": [
+    {
+      "chunk_id": "71f9fbaf-0d8f-4f33-9a57-e3a1b857f31c",
+      "document_id": "9f19cf1d-67f0-4909-a93e-4a4d2e8e1f51",
+      "text": "EU energy ministers met in Brussels to discuss energy security, gas storage targets, and sanctions enforcement across member states.",
+      "score": 0.9127,
+      "title": "EU Ministers Debate Energy Security",
+      "source": "EuroEnergy Daily",
+      "language": "en",
+      "published_at": "2023-09-14 00:00:00+00:00",
+      "chunk_index": 0,
+      "token_count": 128
+    }
+  ],
+  "retrieval_notes": {
+    "hybrid_candidates": 10,
+    "reranked_to": 5,
+    "metadata_filters_applied": ["language"],
+    "entity_boost_applied": false
+  }
+}
 ```
 
 The `confidence` field in the response is a **retrieval-strength heuristic** (based on the number and score of matched chunks), not a factual verifier. See [Known Limitations](#known-limitations).
@@ -330,15 +416,16 @@ See `.env.example` for full reference. Key variables:
 | `POSTGRES_HOST_PORT` | `5433` | Host port for Postgres |
 
 ---
-### The decision that shaped the architecture
 
-The spec states a core principle I agreed with immediately: *the LLM is not the source of truth, retrieved chunks are.* A grounded answer with accurate citations is verifiably correct. A fluent answer without them cannot be trusted. That principle meant the retrieval pipeline had to work well before the LLM integration mattered at all.
+### The decision that shaped everything else
+
+The spec states a core principle I agreed with immediately: *the LLM is not the source of truth — retrieved chunks are.* A grounded answer with accurate citations is verifiably correct. A fluent answer without them cannot be trusted. That principle meant the retrieval pipeline had to work well before the LLM integration mattered at all.
 
 Hybrid search (vector + full-text with RRF fusion) and cross-encoder reranking were the most direct way to raise retrieval precision. They were stretch goals on paper, but they were the right answer to the actual problem. I built them first.
 
 ### Language scope
 
-The brief did not specify which languages to support. After confirming that Ahody is Swedish and expanding into EU markets, I chose EN, SV, DE, NO, FR. This choice is encoded in exactly two places: the spaCy model list and the FTS config map. If the requirement differs, both change in a few lines.
+I chose EN, SV, DE, NO, FR. This choice is encoded in exactly two places: the spaCy model list and the FTS config map. If the requirement differs, both change in a few lines.
 
 ### Why the evaluation infrastructure exists
 
@@ -349,8 +436,9 @@ The evaluation suite produced concrete numbers:
 - 31/31 robustness tests across bad metadata, ugly text, and PDF edge cases
 - Rerank latency reduced from ~22s to ~7s through candidate-count ablation, with zero retrieval quality loss
 
-[ These numbers might not be impressive because the corpus is small. They are useful because any interviewer can reproduce them on a fresh machine in under 10 minutes. That was the goal.]
+[These numbers are not impressive because the corpus is small. They are useful because any interviewer can reproduce them on a fresh machine in under 10 minutes. That was the goal.]
 
 ### AI collaboration
 
 I used a mix of both Claude and Codex throughout this project. How to build, what to skip, which models to use, how to measure quality. Claude wrote and iterated on the code, Codex helped me with architectural decisions and caught bugs, ran test iterations, and allowed me to cover significantly more ground in three days than I could have alone.
+
