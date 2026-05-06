@@ -1,44 +1,15 @@
 # Ahody RAG — Authoritative Build Specification
 
-> **This is the single source of truth.**  
-> `implementation.md` and `implementation.claude.md` are superseded by this document.  
-> All implementation decisions, rationales, and code patterns come from here.
 
----
+## 1. Architecture Decisions
 
-## 1. Assignment Summary (verbatim from brief)
-
-> Ahody's customers need an internal knowledge base where they can upload source material (memos, reports, articles from sources other than the newspaper) and then ask questions against the content in natural language, with source references. Your assignment is to build the foundation.
-
-**Must-haves:** Upload API (text + binary), Indexing (chunking + embeddings + persistent storage), Search (`GET /search`), Chat with citations (`POST /chat`), Persistence across restart.
-
-**Stretch (optional):** Graph representation, Hybrid search, Streaming, Reranking, Auth.
-
-**Evaluated on:** Judgment, source references, data modeling, AI collaboration, code quality, tradeoff awareness. Not evaluated on: UI, perfect error handling, CI/CD, production observability.
-
----
-
-## 2. Candidate Assumptions (not stated in the brief)
-
-These are explicit assumptions made by the candidate, not facts from the assignment:
-
-**Language scope:** The brief does not specify which languages to support. The target languages are **EN, SV, DE, NO, FR** — a deliberate choice made after discussion with the hiring contact who confirmed Ahody is Swedish and expanding into EU markets including France. Finnish was considered and explicitly dropped in favour of French for this reason. If the actual requirement differs, only the spaCy model list and FTS config map need changing — no architectural changes required.
-
-**Document types:** The brief mentions "memos, reports, articles." The data model accepts any document type via the `document_type` field and applies no hardcoded assumptions about content structure.
-
-**Scale:** The brief describes a foundation, not a production system. Design decisions (chunk size, exact vector search, single Postgres instance) are calibrated for tens to hundreds of documents — the expected scale for a work sample. Each decision notes how it would change at larger scale.
-
----
-
-## 3. Architecture Decisions
-
-### 3.1 Core principle
+### 1.1 Core principle
 
 **The LLM is not the source of truth. Retrieved chunks are.**
 
 The retrieval pipeline must return the right evidence before the LLM generates prose. A wrong answer with citations is caught immediately. A right answer without citations cannot be trusted.
 
-### 3.2 Decision table
+### 1.2 Decision table
 
 | Decision | Choice | Rejected alternative | Reason |
 |---|---|---|---|
@@ -56,7 +27,7 @@ The retrieval pipeline must return the right evidence before the LLM generates p
 
 ---
 
-## 4. Stack
+## 2. Stack
 
 ```
 Language:         Python 3.11+
@@ -76,7 +47,7 @@ Testing:          pytest + httpx (async)
 
 ---
 
-## 5. Project Structure
+## 3. Project Structure
 
 ```
 rag-kb/
@@ -147,7 +118,7 @@ rag-kb/
 
 ---
 
-## 6. Docker Compose
+## 4. Docker Compose
 
 ```yaml
 # docker-compose.yml
@@ -222,7 +193,7 @@ volumes:
 
 ---
 
-## 7. Dockerfile
+## 5. Dockerfile
 
 ```dockerfile
 FROM python:3.11-slim
@@ -250,7 +221,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ---
 
-## 8. Requirements
+## 6. Requirements
 
 ```
 # requirements.txt
@@ -306,7 +277,7 @@ httpx==0.27.0
 
 ---
 
-## 9. Environment Variables
+## 8. Environment Variables
 
 ```bash
 # .env.example
