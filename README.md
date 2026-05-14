@@ -1,4 +1,4 @@
-#  Knowledge Based RAG Backend [Ahody Interview process]
+#  Knowledge Based RAG Backend 
 
 A metadata-aware, multilingual RAG backend for internal knowledge base search with source-grounded answers. Fully implemented and evaluated.
 
